@@ -723,9 +723,11 @@ class Model(nn.Module):
         position_ids = position_ids.squeeze(0)
         for i in range(depth):
             current_layer = (1 + i)//self.position_per_layer
+            stable_kv_update_needed = ((1 + i)%self.position_per_layer==0)
             if current_layer > self.layer_num-1:
                 current_layer = self.layer_num-1
                 layer_num_overflow = True
+                stable_kv_update_needed = False
             else:
                 layer_num_overflow = False
             self.tree_mask = tree_mask
@@ -774,7 +776,8 @@ class Model(nn.Module):
                 out_hidden, past_key_values, _ = self(temp_hidden_states, input_ids=input_ids, position_ids=temp_position_ids, use_cache=True, forward_layer=current_layer)
 
             out_hidden = out_hidden[:, -top_k:]
-            self.stable_kv[current_layer] = ((past_key_values[0][0][:,:,:self.stable_kv[0][0][0].shape[2],:], past_key_values[0][1][:,:,:self.stable_kv[0][0][1].shape[2],:]),)
+            if stable_kv_update_needed:
+                self.stable_kv[current_layer] = ((past_key_values[0][0][:,:,:self.stable_kv[0][0][0].shape[2],:], past_key_values[0][1][:,:,:self.stable_kv[0][0][1].shape[2],:]),)
 
             len_posi += 1
 
